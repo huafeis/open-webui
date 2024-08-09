@@ -15,15 +15,13 @@
 		updateUserValvesById as updateFunctionUserValvesById
 	} from '$lib/apis/functions';
 
-	import ManageModal from './Personalization/ManageModal.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Valves from '$lib/components/common/Valves.svelte';
 
 	const dispatch = createEventDispatcher();
 
 	const i18n = getContext('i18n');
-
-	export let saveSettings: Function;
 
 	let tab = 'tools';
 	let selectedId = '';
@@ -32,6 +30,19 @@
 
 	let valvesSpec = null;
 	let valves = {};
+
+	let debounceTimer;
+
+	const debounceSubmitHandler = async () => {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+
+		// Set a new timer
+		debounceTimer = setTimeout(() => {
+			submitHandler();
+		}, 500); // 0.5 second debounce
+	};
 
 	const getUserValves = async () => {
 		loading = true;
@@ -110,53 +121,45 @@
 		dispatch('save');
 	}}
 >
-	<div class="flex flex-col pr-1.5 overflow-y-scroll max-h-[25rem]">
-		<div>
-			<div class="flex items-center justify-between mb-2">
-				<Tooltip content="">
-					<div class="text-sm font-medium">
-						{$i18n.t('Manage Valves')}
-					</div>
-				</Tooltip>
-
-				<div class=" self-end">
-					<select
-						class=" dark:bg-gray-900 w-fit pr-8 rounded text-xs bg-transparent outline-none text-right"
-						bind:value={tab}
-						placeholder="Select"
-					>
-						<option value="tools">{$i18n.t('Tools')}</option>
-						<option value="functions">{$i18n.t('Functions')}</option>
-					</select>
-				</div>
-			</div>
-		</div>
-
+	<div class="flex flex-col">
 		<div class="space-y-1">
 			<div class="flex gap-2">
 				<div class="flex-1">
 					<select
-						class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
+						class="  w-full rounded text-xs py-2 px-1 bg-transparent outline-none"
+						bind:value={tab}
+						placeholder="Select"
+					>
+						<option value="tools" class="bg-gray-100 dark:bg-gray-800">{$i18n.t('Tools')}</option>
+						<option value="functions" class="bg-gray-100 dark:bg-gray-800"
+							>{$i18n.t('Functions')}</option
+						>
+					</select>
+				</div>
+
+				<div class="flex-1">
+					<select
+						class="w-full rounded py-2 px-1 text-xs bg-transparent outline-none"
 						bind:value={selectedId}
 						on:change={async () => {
 							await tick();
 						}}
 					>
 						{#if tab === 'tools'}
-							<option value="" selected disabled class="bg-gray-100 dark:bg-gray-700"
+							<option value="" selected disabled class="bg-gray-100 dark:bg-gray-800"
 								>{$i18n.t('Select a tool')}</option
 							>
 
 							{#each $tools as tool, toolIdx}
-								<option value={tool.id} class="bg-gray-100 dark:bg-gray-700">{tool.name}</option>
+								<option value={tool.id} class="bg-gray-100 dark:bg-gray-800">{tool.name}</option>
 							{/each}
 						{:else if tab === 'functions'}
-							<option value="" selected disabled class="bg-gray-100 dark:bg-gray-700"
+							<option value="" selected disabled class="bg-gray-100 dark:bg-gray-800"
 								>{$i18n.t('Select a function')}</option
 							>
 
 							{#each $functions as func, funcIdx}
-								<option value={func.id} class="bg-gray-100 dark:bg-700">{func.name}</option>
+								<option value={func.id} class="bg-gray-100 dark:bg-gray-800">{func.name}</option>
 							{/each}
 						{/if}
 					</select>
@@ -165,81 +168,21 @@
 		</div>
 
 		{#if selectedId}
-			<hr class="dark:border-gray-800 my-3 w-full" />
+			<hr class="dark:border-gray-800 my-1 w-full" />
 
-			<div>
+			<div class="my-2 text-xs">
 				{#if !loading}
-					{#if valvesSpec}
-						{#each Object.keys(valvesSpec.properties) as property, idx}
-							<div class=" py-0.5 w-full justify-between">
-								<div class="flex w-full justify-between">
-									<div class=" self-center text-xs font-medium">
-										{valvesSpec.properties[property].title}
-
-										{#if (valvesSpec?.required ?? []).includes(property)}
-											<span class=" text-gray-500">*required</span>
-										{/if}
-									</div>
-
-									<button
-										class="p-1 px-3 text-xs flex rounded transition"
-										type="button"
-										on:click={() => {
-											valves[property] = (valves[property] ?? null) === null ? '' : null;
-										}}
-									>
-										{#if (valves[property] ?? null) === null}
-											<span class="ml-2 self-center">
-												{#if (valvesSpec?.required ?? []).includes(property)}
-													{$i18n.t('None')}
-												{:else}
-													{$i18n.t('Default')}
-												{/if}
-											</span>
-										{:else}
-											<span class="ml-2 self-center"> {$i18n.t('Custom')} </span>
-										{/if}
-									</button>
-								</div>
-
-								{#if (valves[property] ?? null) !== null}
-									<div class="flex mt-0.5 mb-1.5 space-x-2">
-										<div class=" flex-1">
-											<input
-												class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
-												type="text"
-												placeholder={valvesSpec.properties[property].title}
-												bind:value={valves[property]}
-												autocomplete="off"
-												required
-											/>
-										</div>
-									</div>
-								{/if}
-
-								{#if (valvesSpec.properties[property]?.description ?? null) !== null}
-									<div class="text-xs text-gray-500">
-										{valvesSpec.properties[property].description}
-									</div>
-								{/if}
-							</div>
-						{/each}
-					{:else}
-						<div>No valves</div>
-					{/if}
+					<Valves
+						{valvesSpec}
+						bind:valves
+						on:change={() => {
+							debounceSubmitHandler();
+						}}
+					/>
 				{:else}
 					<Spinner className="size-5" />
 				{/if}
 			</div>
 		{/if}
-	</div>
-
-	<div class="flex justify-end text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
-			{$i18n.t('Save')}
-		</button>
 	</div>
 </form>
